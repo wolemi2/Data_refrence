@@ -44,8 +44,11 @@ Y[,j,]=(arx2[,j,]-min11[j])/(max11[j]-min11[j])
 arx2=Y
 load("results/multGP3")
 GP=multGP3
-load("data/min2")
-load("data/max2")
+#load("data/min2")
+#load("data/max2")
+max2min2=as.matrix(read.csv("max2min2.txt",sep=" ",header=FALSE))
+max2=c(max2min2[1,])
+min2=c(max2min2[2,])
 r=dim(y)[3]
 #################
 
