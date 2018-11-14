@@ -21,7 +21,7 @@ gap2[[j]]=as.matrix(read.csv(sub("j",j,paste("data2","idynotrain_j.csv",sep="/")
 }
 input=abind(gap,along=3)
 input1=input[1:ntime,,]
-design0=t(input[1,,])
+#design0=t(input[1,,])
 y=abind(gap1,along=3)
 #####################scale
 min1=apply(y,2,min)
@@ -42,7 +42,7 @@ for(j in 1:nout){
 Y[,j,]=(arx2[,j,]-min11[j])/(max11[j]-min11[j])
 }
 arx2=Y
-load("results/multGP3")
+load("multGP3")
 GP=multGP3
 #load("data/min2")
 #load("data/max2")
@@ -72,15 +72,16 @@ sigmazi=sig2*diag(1,q*r)#rep(.01,ndes)
 MH=function(betai,design0,Erri,Vi,p,Thetai,obsinput,arx2,etai,sigmazi){
 T=ntime
 St=Mt=list()
+A1=0;A2=0
+llk=0
+for(t in p:T){
+design0=t(input[t,,])
 Sigma=corr.matrix(design0[1:rr,,drop=FALSE],design0[1:rr,,drop=FALSE],scales=betai,method=1)+diag(lambda,rr)
 SigmaInv=solve(Sigma)
 gg=design0[1:rr,,drop=FALSE]
 gg[,4:7]=matrix(etai,nrow=rr,ncol=length(etai),byrow=TRUE)
 rho=corr.matrix(gg,design0[1:rr,,drop=FALSE],scales=betai,method=1)
-A1=0;A2=0
-llk=0
-for(t in p:T){
-inp=input1[1,,]
+inp=input1[t,,]
 inp[4:7,]=t(matrix(etai,nrow=rr,ncol=length(etai),byrow=TRUE))
 Mt[[t]] = t(Thetai[1,,])%*%inp+ t(t(rho)%*%SigmaInv%*%t(Erri[t,,1:rr]))
 #pp=diag(rep(diag(sigmazi),each=rr))+Vi[t,,]%x%(1-t(rho)%*% SigmaInv %*% rho)
@@ -121,8 +122,8 @@ list(eta=eta,sigmaz=sigmaz,score=score)
 MH=cmpfun(MH)
 MH2=cmpfun(MH2) 
 
-ww=5000
-thin=5 
+ww=25000
+thin=5
 burn=2000
 ETA=array(0,c(ninp-3,ww/thin))
 SIGMAZ=array(0,c(q*r,q*r,ww/thin))
@@ -167,7 +168,7 @@ ERR0=apply(GP[[3]][1:ntime,,,-(1:burn)],c(2,3),rowMeans)#96x2x75
 BETA0=apply(GP[[4]][,-(1:burn)],1,mean)
 
 T=72
-burn=4000#2000
+burn=2500
 est=apply(ETA[,-(1:burn)],1,mean)# 
 est2=matrix(est,nrow=97,ncol=length(est),byrow=TRUE)
 vv=apply(SIGMAZ[,,-(1:burn)],2,rowMeans)
@@ -175,6 +176,7 @@ v0=array(diag(vv),c(97,4))
 emu0=list()
 dev=devv=list()
 for(t in 1:T){
+design0=t(input[t,,])
 eta00=t(input1[t,1:3,])
 aa=cbind(eta00,est2)
 Sigma=corr.matrix(design0[,,drop=FALSE],design0[,,drop=FALSE],scales=BETA0)+diag(lambda,rr)
@@ -190,7 +192,7 @@ devv[[t]]=matrix(diag(pp),nrow=97,ncol=4)
 emu=abind(emu0,along=0)#t(emu0[[t]])
 cbind(emu[,,56],arx2[,,56])
 diag(cor(emu[,1,],arx2[,1,])^2)
-##################predictions
+##################predictions##Figure 8
 tit=c("Biomass concentration (kg/m^3)","Total no of particles","Biofilm height (m)","Surface roughness (m)")
 emuu=emu
 emuvv=abind(devv,along=0)
@@ -198,7 +200,7 @@ ttime=(1:72)
 TT=72
 library(plotrix)
 lap=c(15,10,72,80)
-#k=15#72
+k=20#73
 par(mar = c(4, 5, 3, 1) + 0.1, cex = 1.5)
 par(mfrow=c(2,2))
 lim=list(c(-11,45),c(-5,45),c(-17,45),c(-23,45))
@@ -207,8 +209,8 @@ sd=2*sqrt(emuvv[1:TT,k,j])*(max1[j]-min1[j])
 y1=(arx2[1:TT,j,k])*(max11[j]-min11[j])+min11[j]#idyno
 y2=(arx[1:TT,j,k])*(max1[j]-min1[j])+min1[j]##NUFEB
 y3=(emuu[1:TT,j,k])*(max1[j]-min1[j])+min1[j]##emulator
-dev1=(emuu[1:TT,j,k]-sd)
-dev2=(emuu[1:TT,j,k]+sd)
+dev1=(y3-sd)
+dev2=(y3+sd)
 coll=c("red","green","blue","black")
 F=y3
 U=dev2
@@ -223,22 +225,7 @@ legend("topleft",c("iDynoMiCS","NUFEB","Emulator","95% C.I"),
 fill=c("blue","black","green","red"),bty="0",border="black",cex=1.5,horiz=FALSE)
 }
 
-
-###################Figure 6
-tvec=c(1:96)
-burn=4000
-par(mar = c(4, 4, 3, 1) + 0.1, cex = 1.2)
-par(mfrow=c(2,2))
-for(j in 1:4){
-gap=(ETA[j,-(1:burn)])
-x=seq(0,1,length=1000)
-#hist(gap,breaks=15,col="green",xlab="",prob=T,main=substitute(paste('Density of ',eta[a]),list(a=tvec[j])),cex=1.5,cex.lab=1.5,cex.axis=1.5,cex.main=1.5,xlim=c(0,.4))
-hist(gap,breaks=15,col="green",xlab="",prob=T,main=substitute(paste('Density of ',eta[a]),list(a=tvec[j])),cex=1.5,cex.lab=1.5,cex.axis=1.5,cex.main=1.5)
-par(new=TRUE)
-curve(dunif(x,0,1),add=TRUE,from=0,to=1,axes=FALSE, ylab="",xlab="",col="red",lwd=2)
-}
 #################or Figure 6
-burn=4000
 par(mar = c(4, 4, 3, 1) + 0.1, cex = 1.2)
 par(mfrow=c(2,2))
 for(j in 1:4){
@@ -261,7 +248,7 @@ par(mfrow=c(2,2))
 for(r in 1:4){
 j=(97*r)-94
 hh=SIGMAZ[j,j,-(1:burn)]
-foo=hist(hh,breaks=8,panel.first=grid(),xaxt="n",col="green",xlab="",prob=T,main=substitute(paste('Density of ',sigma[a]^2),list(a=tvec[r])))
+foo=hist(hh,breaks=8,xaxt="n",col="green",xlab="",prob=T,main=substitute(paste('Density of ',sigma[a]^2),list(a=tvec[r])))
 x=seq(0,1,length=1000)
 axis(side=1,at=foo$mids,labels=signif(seq(min(hh),max(hh),l=length(foo$mids)),digits=3),cex=1.5,cex.lab=1.5,cex.axis=1.5,cex.main=1.5)
 par(new=TRUE)
@@ -278,13 +265,6 @@ ts.plot(ergMean(ETA[j,-c(1:burn)]),col="red",xlab="Iterations",ylab="ErgMean")
 ts.plot(ETA[j,-(1:burn)],col="blue",xlab="Iterations",ylab="Traceplots")
 }
 
-par(mfrow=c(4,3))
-for(j in 1:4){
-hist(SIGMAZ[j,j,-(1:burn)],col="green",xlab="",prob=T,main=substitute(paste('Density of ',sigma[a]^2),list(a="z")))
-lines(density(SIGMAZ[j,j,-(1:burn)]),col="red",xlab=expression(sigma^2),cex.main=1.2,cex.axis=1.2)
-plot(ergMean(SIGMAZ[j,j,-c(1:burn)]),col="red",xlab="Iterations",ylab="ErgMean",cex.axis=1.3)
-plot(SIGMAZ[j,j,-(1:burn)],col="blue",xlab="Iterations",ylab="Traceplots",cex.axis=1.3)
-}
 #########################Table 4
 olu=apply(ETA[,-(1:burn)],1,mean)
 u1= quantile(ETA[1,-(1:burn)],probs=c(.025,.975))
@@ -294,4 +274,14 @@ u4= quantile(ETA[4,-(1:burn)],probs=c(.025,.975))
 uu=rbind(u1,u2,u3,u4)
 (uu*(max2[4:7]-min2[4:7]))+min2[4:7]
 (olu*(max2[4:7]-min2[4:7]))+min2[4:7]
+
+ #    2.5%        97.5%
+##u1 9.372408e-05 1.029284e-04
+#u2 7.246807e-06 1.612036e-05
+#u3 5.699599e-01 9.356600e-01
+#u4 1.316561e-01 3.495280e-01
+# (olu*(max2[4:7]-min2[4:7]))+min2[4:7]
+# 1.001276e-04 1.020525e-05 8.145348e-01 2.324284e-01
+
+
 
